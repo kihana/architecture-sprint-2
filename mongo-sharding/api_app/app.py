@@ -48,6 +48,23 @@ else:
 client = motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)
 db = client[DATABASE_NAME]
 
+async def get_number_docs_from_shards(collection_name):
+    collection = db[collection_name]
+    shards = {}
+
+    # Aggregation pipeline with $collStats
+    pipeline = [
+        {"$collStats": {"storageStats": {}}}
+    ]
+
+    # Execute the aggregation
+    async for shard_stats in collection.aggregate(pipeline):
+        shard = shard_stats.get("shard", "unknown_shard")
+        count = shard_stats.get("storageStats", {}).get("count", 0)
+        shards[shard] = count
+
+    return shards
+
 # Represents an ObjectId field in the database.
 # It will be represented as a `str` on the model so that it can be serialized to JSON.
 PyObjectId = Annotated[str, BeforeValidator(str)]
@@ -87,6 +104,10 @@ async def root():
         collections[collection_name] = {
             "documents_count": await collection.count_documents({})
         }
+        collections[collection_name] = {
+            "shards": await get_number_docs_from_shards(collection_name)
+        }
+
     try:
         replica_status = await client.admin.command("replSetGetStatus")
         replica_status = json.dumps(replica_status, indent=2, default=str)
