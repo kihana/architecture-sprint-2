@@ -102,9 +102,7 @@ async def root():
     for collection_name in collection_names:
         collection = db.get_collection(collection_name)
         collections[collection_name] = {
-            "documents_count": await collection.count_documents({})
-        }
-        collections[collection_name] = {
+            "documents_count": await collection.count_documents({}),
             "shards": await get_number_docs_from_shards(collection_name)
         }
 
